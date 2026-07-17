@@ -6,8 +6,8 @@ import { assignSession, addFeedback } from "@/lib/actions";
 import { UserNav } from "@/components/nav";
 import { ActionForm, SubmitButton } from "@/components/ui";
 import { ProgressionBar, StatusPill, FitnessChart } from "@/components/stats";
-import { levelFromXp, todayStr, addDays } from "@/lib/gamification";
-import { buildFitnessSeries } from "@/lib/trainingload";
+import { levelFromXp, todayStr } from "@/lib/gamification";
+import { buildFitnessSeries, fitnessLoadStartDate } from "@/lib/trainingload";
 import { TIER_META, Tier, ageFromBirthYear } from "@/lib/benchmarks";
 
 export default async function AthletePage({ params }: { params: Promise<{ id: string }> }) {
@@ -37,7 +37,7 @@ export default async function AthletePage({ params }: { params: Promise<{ id: st
     }),
     prisma.skill.findMany({ include: { drills: { orderBy: { difficulty: "asc" } } }, orderBy: { name: "asc" } }),
     prisma.session.findMany({
-      where: { childId: child.id, date: { gte: addDays(today, -83), lte: today } },
+      where: { childId: child.id, date: { gte: fitnessLoadStartDate(), lte: today } },
       select: { date: true, trainingLoad: true },
     }),
   ]);

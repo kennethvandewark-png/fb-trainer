@@ -5,8 +5,8 @@ import { addChild, generateInviteCode, removeCoach } from "@/lib/actions";
 import { UserNav } from "@/components/nav";
 import { ActionForm, SubmitButton } from "@/components/ui";
 import { FitnessChart } from "@/components/stats";
-import { levelFromXp, todayStr, addDays } from "@/lib/gamification";
-import { buildFitnessSeries } from "@/lib/trainingload";
+import { levelFromXp, todayStr } from "@/lib/gamification";
+import { buildFitnessSeries, fitnessLoadStartDate } from "@/lib/trainingload";
 import { TIER_META, Tier, ageFromBirthYear } from "@/lib/benchmarks";
 
 export default async function ParentPage() {
@@ -30,7 +30,7 @@ export default async function ParentPage() {
   const childIds = children.map((c) => c.id);
   const loadSessions = childIds.length
     ? await prisma.session.findMany({
-        where: { childId: { in: childIds }, date: { gte: addDays(today, -83), lte: today } },
+        where: { childId: { in: childIds }, date: { gte: fitnessLoadStartDate(), lte: today } },
         select: { childId: true, date: true, trainingLoad: true },
       })
     : [];

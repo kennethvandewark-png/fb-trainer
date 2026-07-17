@@ -6,7 +6,7 @@ import { todayStr, addDays } from "@/lib/gamification";
 import { ChildNav } from "@/components/nav";
 import { StatCard, XpBar, LoadChart, FitnessChart, StatusPill } from "@/components/stats";
 import { createQuickSession } from "@/lib/actions";
-import { buildFitnessSeries } from "@/lib/trainingload";
+import { buildFitnessSeries, fitnessLoadStartDate } from "@/lib/trainingload";
 import { TIER_META, Tier } from "@/lib/benchmarks";
 
 export default async function HomePage() {
@@ -42,7 +42,7 @@ export default async function HomePage() {
       where: { childId: child.id, date: { gte: addDays(today, -27), lte: addDays(today, 7) } },
     }),
     prisma.session.findMany({
-      where: { childId: child.id, date: { gte: addDays(today, -83), lte: today } },
+      where: { childId: child.id, date: { gte: fitnessLoadStartDate(), lte: today } },
       select: { date: true, trainingLoad: true },
     }),
   ]);

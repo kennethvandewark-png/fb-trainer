@@ -17,6 +17,14 @@ import { addDays, daysBetween, todayStr } from "./gamification";
 export const FITNESS_TAU = 42; // days (chronic load / "CTL")
 export const FATIGUE_TAU = 7; // days (acute load / "ATL")
 
+/**
+ * Extra history (in days) to load *before* the display window so the EWMAs are
+ * warmed up on real training instead of restarting from zero at the window edge.
+ * Four chronic time constants leaves the zero seed at e^-4 (~1.8%) influence by
+ * the time the display window starts, which is close enough to steady state.
+ */
+export const FITNESS_WARMUP_DAYS = FITNESS_TAU * 4; // 168 days
+
 /** EWMA smoothing factor for a given time constant (τ) in days. */
 export function ewmaAlpha(tau: number) {
   return 1 - Math.exp(-1 / tau);
@@ -80,6 +88,17 @@ export function buildFitnessSeries(sessions: SessionLike[], days = 84): FitnessP
   }
 
   return series;
+}
+
+/**
+ * Earliest session date `buildFitnessSeries` needs in order to warm up the EWMAs
+ * before the `days`-long display window. Callers must fetch sessions from this
+ * date (inclusive) up to today; otherwise the chronic/acute averages restart
+ * from zero at the window edge and understate Fitness/Tiredness for athletes who
+ * were already training before the window.
+ */
+export function fitnessLoadStartDate(days = 84, today = todayStr()): string {
+  return addDays(today, -(days - 1 + FITNESS_WARMUP_DAYS));
 }
 
 /** Plain-language reading of the current freshness value. */
