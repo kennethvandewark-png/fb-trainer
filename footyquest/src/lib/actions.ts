@@ -101,7 +101,12 @@ export async function generateInviteCode(childId: string) {
   const child = await prisma.childProfile.findFirst({ where: { id: childId, parentId: parent.id } });
   if (!child) return;
 
-  const code = Math.random().toString(36).slice(2, 8).toUpperCase();
+  // Unambiguous alphabet: no 0/O, 1/I/L, or other look-alikes
+  const alphabet = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const code = Array.from(
+    { length: 6 },
+    () => alphabet[Math.floor(Math.random() * alphabet.length)]
+  ).join("");
   await prisma.inviteCode.create({ data: { code, childId } });
   revalidatePath("/parent");
 }
