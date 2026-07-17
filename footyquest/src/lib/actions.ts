@@ -252,6 +252,8 @@ export async function completeSessionAction(_prev: ActionState, formData: FormDa
     revalidatePath("/home");
     revalidatePath("/calendar");
     revalidatePath(`/session/${sessionId}`);
+    revalidatePath("/parent");
+    revalidatePath(`/coach/athlete/${child.id}`);
     const badgeMsg = result.newBadges.length ? ` New badge${result.newBadges.length > 1 ? "s" : ""} earned!` : "";
     return {
       success:
