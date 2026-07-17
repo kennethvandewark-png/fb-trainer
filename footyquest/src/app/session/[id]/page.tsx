@@ -50,7 +50,11 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
             <div className="mt-3 rounded-xl bg-zinc-800/60 p-3 text-sm text-zinc-300">
               Logged{session.completedAt ? ` on ${session.completedAt.toISOString().slice(0, 10)}` : ""} — actual load{" "}
               <span className="font-bold text-emerald-400">{session.actualLoad}</span>
-              {session.rpe && <> · RPE {session.rpe}/10</>}
+              {session.rpe ? (
+                <> · RPE {session.rpe}/10</>
+              ) : (
+                session.effort && <> · felt {session.effort.replace("_", " ").toLowerCase()}</>
+              )}
               {session.notes && <p className="mt-1 text-zinc-400">Notes: {session.notes}</p>}
             </div>
           )}
