@@ -5,8 +5,9 @@ import { requireUser } from "@/lib/auth";
 import { assignSession, addFeedback } from "@/lib/actions";
 import { UserNav } from "@/components/nav";
 import { ActionForm, SubmitButton } from "@/components/ui";
-import { ProgressionBar, StatusPill } from "@/components/stats";
-import { levelFromXp, todayStr } from "@/lib/gamification";
+import { ProgressionBar, StatusPill, FitnessChart } from "@/components/stats";
+import { levelFromXp, todayStr, addDays } from "@/lib/gamification";
+import { buildFitnessSeries } from "@/lib/trainingload";
 import { TIER_META, Tier, ageFromBirthYear } from "@/lib/benchmarks";
 
 export default async function AthletePage({ params }: { params: Promise<{ id: string }> }) {
@@ -22,7 +23,7 @@ export default async function AthletePage({ params }: { params: Promise<{ id: st
   const child = link.child;
 
   const today = todayStr();
-  const [upcoming, recent, skills] = await Promise.all([
+  const [upcoming, recent, skills, loadSessions] = await Promise.all([
     prisma.session.findMany({
       where: { childId: child.id, date: { gte: today } },
       orderBy: { date: "asc" },
@@ -35,7 +36,13 @@ export default async function AthletePage({ params }: { params: Promise<{ id: st
       take: 5,
     }),
     prisma.skill.findMany({ include: { drills: { orderBy: { difficulty: "asc" } } }, orderBy: { name: "asc" } }),
+    prisma.session.findMany({
+      where: { childId: child.id, date: { gte: addDays(today, -83), lte: today } },
+      select: { date: true, trainingLoad: true },
+    }),
   ]);
+
+  const fitnessSeries = buildFitnessSeries(loadSessions);
 
   return (
     <div>
@@ -55,6 +62,11 @@ export default async function AthletePage({ params }: { params: Promise<{ id: st
             </p>
           </div>
         </div>
+
+        <section className="card">
+          <h2 className="mb-4 text-lg font-bold">Fitness &amp; Freshness (load model)</h2>
+          <FitnessChart series={fitnessSeries} technical />
+        </section>
 
         <div className="grid gap-6 lg:grid-cols-2">
           <section className="card">

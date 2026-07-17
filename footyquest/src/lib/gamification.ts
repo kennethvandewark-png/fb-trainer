@@ -163,13 +163,23 @@ export function bumpProgressionLevel(currentPL: number, drillDifficulty: number,
 
 export type DrillOutcome = { sessionDrillId: string; completed: boolean; resultValue?: number };
 
+/** Map a 1-10 session RPE onto the effort bands used to tune progression levels. */
+export function effortFromRpe(rpe: number | null): string | null {
+  if (rpe === null || Number.isNaN(rpe)) return null;
+  if (rpe <= 3) return "EASY";
+  if (rpe <= 6) return "MODERATE";
+  if (rpe <= 8) return "HARD";
+  return "ALL_OUT";
+}
+
 export async function processSessionCompletion(opts: {
   sessionId: string;
   childId: string;
   outcomes: DrillOutcome[];
-  effort: string | null;
+  rpe: number | null;
   notes: string;
 }) {
+  const effort = effortFromRpe(opts.rpe);
   const session = await prisma.session.findUnique({
     where: { id: opts.sessionId },
     include: { drills: { include: { drill: { include: { skill: true } } } } },
@@ -183,6 +193,7 @@ export async function processSessionCompletion(opts: {
 
   const outcomeMap = new Map(opts.outcomes.map((o) => [o.sessionDrillId, o]));
   let actualLoad = 0;
+  let completedMinutes = 0;
   let completedDrills = 0;
 
   for (const sd of session.drills) {
@@ -198,6 +209,7 @@ export async function processSessionCompletion(opts: {
     if (!completed) continue;
     completedDrills++;
     actualLoad += sd.drill.loadScore;
+    completedMinutes += sd.drill.durationMin;
 
     // Progression level update
     const childSkill = await prisma.childSkill.upsert({
@@ -205,7 +217,7 @@ export async function processSessionCompletion(opts: {
       update: {},
       create: { childId: opts.childId, skillId: sd.drill.skillId },
     });
-    const newPL = bumpProgressionLevel(childSkill.progressionLevel, sd.drill.difficulty, opts.effort);
+    const newPL = bumpProgressionLevel(childSkill.progressionLevel, sd.drill.difficulty, effort);
 
     // Benchmark result → tier
     let tier = childSkill.tier;
@@ -231,12 +243,17 @@ export async function processSessionCompletion(opts: {
   const total = session.drills.length;
   const status = completedDrills === 0 ? "SKIPPED" : completedDrills === total ? "COMPLETED" : "PARTIAL";
 
+  // Session-RPE training load (RPE × minutes) feeds the fitness/fatigue model.
+  const trainingLoad = opts.rpe && completedMinutes > 0 ? opts.rpe * completedMinutes : 0;
+
   await prisma.session.update({
     where: { id: session.id },
     data: {
       status,
       actualLoad,
-      effort: opts.effort,
+      rpe: opts.rpe,
+      trainingLoad,
+      effort,
       notes: opts.notes,
       completedAt: new Date(),
     },

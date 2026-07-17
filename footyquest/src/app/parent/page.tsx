@@ -4,7 +4,9 @@ import { requireUser } from "@/lib/auth";
 import { addChild, generateInviteCode, removeCoach } from "@/lib/actions";
 import { UserNav } from "@/components/nav";
 import { ActionForm, SubmitButton } from "@/components/ui";
-import { levelFromXp } from "@/lib/gamification";
+import { FitnessChart } from "@/components/stats";
+import { levelFromXp, todayStr, addDays } from "@/lib/gamification";
+import { buildFitnessSeries } from "@/lib/trainingload";
 import { TIER_META, Tier, ageFromBirthYear } from "@/lib/benchmarks";
 
 export default async function ParentPage() {
@@ -23,6 +25,18 @@ export default async function ParentPage() {
   });
 
   const thisYear = new Date().getFullYear();
+
+  const today = todayStr();
+  const childIds = children.map((c) => c.id);
+  const loadSessions = childIds.length
+    ? await prisma.session.findMany({
+        where: { childId: { in: childIds }, date: { gte: addDays(today, -83), lte: today } },
+        select: { childId: true, date: true, trainingLoad: true },
+      })
+    : [];
+  const seriesByChild = new Map(
+    childIds.map((id) => [id, buildFitnessSeries(loadSessions.filter((s) => s.childId === id))])
+  );
 
   return (
     <div>
@@ -77,6 +91,11 @@ export default async function ParentPage() {
                     ))}
                   </div>
                 )}
+
+                <div className="mb-3 border-t border-zinc-800 pt-3">
+                  <p className="mb-2 text-sm font-semibold text-zinc-300">Fitness &amp; Freshness</p>
+                  <FitnessChart series={seriesByChild.get(c.id) ?? []} />
+                </div>
 
                 <div className="space-y-2 border-t border-zinc-800 pt-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
