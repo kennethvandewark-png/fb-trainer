@@ -45,7 +45,7 @@ export default async function HomePage() {
   // last 4 weeks + current week of load
   const weeks: { label: string; planned: number; actual: number }[] = [];
   for (let w = 4; w >= 0; w--) {
-    const start = addDays(today, -7 * w - new Date(today + "T00:00:00Z").getUTCDay() + 1);
+    const start = addDays(today, -7 * w - ((new Date(today + "T00:00:00Z").getUTCDay() + 6) % 7));
     const end = addDays(start, 6);
     const inWeek = weekSessions.filter((s) => s.date >= start && s.date <= end);
     weeks.push({
