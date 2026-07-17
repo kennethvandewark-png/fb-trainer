@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Accounts ----------
+
+model User {
+  id           String   @id @default(cuid())
+  role         String // "PARENT" | "COACH"
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  children   ChildProfile[] @relation("ParentChildren")
+  coachLinks CoachLink[]    @relation("CoachLinks")
+  sessions   Session[]      @relation("AssignedByCoach")
+  feedbacks  Feedback[]
+}
+
+model ChildProfile {
+  id            String    @id @default(cuid())
+  parentId      String
+  parent        User      @relation("ParentChildren", fields: [parentId], references: [id], onDelete: Cascade)
+  name          String
+  username      String    @unique
+  pinHash       String
+  birthYear     Int
+  avatar        String    @default("⚽")
+  goal          String    @default("HAVE_FUN") // HAVE_FUN | MAKE_TEAM | ELITE | PRO
+  xp            Int       @default(0)
+  streak        Int       @default(0)
+  bestStreak    Int       @default(0)
+  streakFreezes Int       @default(1)
+  lastActiveDay String? // yyyy-mm-dd of last completed session
+  createdAt     DateTime  @default(now())
+
+  skills      ChildSkill[]
+  sessions    Session[]
+  plans       TrainingPlan[]
+  badges      ChildBadge[]
+  coachLinks  CoachLink[]
+  inviteCodes InviteCode[]
+  results     SkillResult[]
+}
+
+model InviteCode {
+  code      String       @id
+  childId   String
+  child     ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  usedById  String?
+  createdAt DateTime     @default(now())
+}
+
+model CoachLink {
+  id        String       @id @default(cuid())
+  coachId   String
+  coach     User         @relation("CoachLinks", fields: [coachId], references: [id], onDelete: Cascade)
+  childId   String
+  child     ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+
+  @@unique([coachId, childId])
+}
+
+// ---------- Skills & Drills ----------
+
+model Skill {
+  id          String @id // slug e.g. "juggling"
+  name        String
+  icon        String
+  description String
+  // Age-adjusted tier benchmarks, JSON:
+  // { unit, direction: "higher"|"lower", bands: [{minAge,maxAge,bronze,silver,gold,elite}] }
+  benchmarks  String
+
+  drills      Drill[]
+  childSkills ChildSkill[]
+  results     SkillResult[]
+}
+
+model ChildSkill {
+  id               String       @id @default(cuid())
+  childId          String
+  child            ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  skillId          String
+  skill            Skill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  progressionLevel Float        @default(1.0) // 1.0 - 10.0, TrainerRoad-style
+  tier             String       @default("NONE") // NONE|BRONZE|SILVER|GOLD|ELITE
+  bestResult       Float?
+
+  @@unique([childId, skillId])
+}
+
+model SkillResult {
+  id         String       @id @default(cuid())
+  childId    String
+  child      ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  skillId    String
+  skill      Skill        @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  value      Float
+  verified   Boolean      @default(false)
+  verifiedBy String? // "PARENT" | "COACH"
+  createdAt  DateTime     @default(now())
+}
+
+model Drill {
+  id             String @id // slug
+  skillId        String
+  skill          Skill  @relation(fields: [skillId], references: [id], onDelete: Cascade)
+  name           String
+  difficulty     Float // 1.0 - 10.0, matches progression levels
+  durationMin    Int
+  loadScore      Int // training load contribution (TSS-like)
+  equipment      String
+  description    String
+  instructions   String // newline-separated steps
+  coachingPoints String // newline-separated cues
+  targetMetric   String? // e.g. "consecutive juggles" — logs a SkillResult
+  videoUrl       String?
+
+  sessionDrills SessionDrill[]
+}
+
+// ---------- Plans & Sessions (calendar) ----------
+
+model TrainingPlan {
+  id        String       @id @default(cuid())
+  childId   String
+  child     ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  name      String
+  goal      String
+  weeks     Int
+  source    String // "AI" | "RULES" | "COACH"
+  summary   String       @default("")
+  active    Boolean      @default(true)
+  createdAt DateTime     @default(now())
+
+  sessions Session[]
+}
+
+model Session {
+  id           String        @id @default(cuid())
+  childId      String
+  child        ChildProfile  @relation(fields: [childId], references: [id], onDelete: Cascade)
+  planId       String?
+  plan         TrainingPlan? @relation(fields: [planId], references: [id], onDelete: SetNull)
+  date         String // yyyy-mm-dd (calendar day)
+  title        String
+  focus        String // skill id or "mixed" | "rest" | "match"
+  status       String        @default("PLANNED") // PLANNED|COMPLETED|PARTIAL|SKIPPED
+  plannedLoad  Int           @default(0)
+  actualLoad   Int           @default(0)
+  effort       String? // EASY|MODERATE|HARD|ALL_OUT (post-session survey)
+  notes        String        @default("")
+  assignedById String?
+  assignedBy   User?         @relation("AssignedByCoach", fields: [assignedById], references: [id], onDelete: SetNull)
+  completedAt  DateTime?
+  createdAt    DateTime      @default(now())
+
+  drills    SessionDrill[]
+  feedbacks Feedback[]
+
+  @@index([childId, date])
+}
+
+model SessionDrill {
+  id          String  @id @default(cuid())
+  sessionId   String
+  session     Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  drillId     String
+  drill       Drill   @relation(fields: [drillId], references: [id], onDelete: Cascade)
+  order       Int     @default(0)
+  completed   Boolean @default(false)
+  resultValue Float? // measurable result if drill has targetMetric
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  coachId   String
+  coach     User     @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  message   String
+  createdAt DateTime @default(now())
+}
+
+// ---------- Gamification ----------
+
+model Badge {
+  id          String @id // slug
+  name        String
+  icon        String
+  description String
+
+  childBadges ChildBadge[]
+}
+
+model ChildBadge {
+  id       String       @id @default(cuid())
+  childId  String
+  child    ChildProfile @relation(fields: [childId], references: [id], onDelete: Cascade)
+  badgeId  String
+  badge    Badge        @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  earnedAt DateTime     @default(now())
+
+  @@unique([childId, badgeId])
+}

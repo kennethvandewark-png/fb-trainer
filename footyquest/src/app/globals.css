@@ -1,0 +1,35 @@
+@import "tailwindcss";
+
+@theme {
+  --color-pitch-50: #effef4;
+  --color-pitch-400: #34d399;
+  --color-pitch-500: #10b981;
+  --color-pitch-600: #059669;
+  --color-pitch-700: #047857;
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: #09090b;
+  color: #fafafa;
+}
+
+.card {
+  @apply rounded-2xl border border-zinc-800 bg-zinc-900/70 p-5;
+}
+
+.btn-primary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-4 py-2.5 font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-50;
+}
+
+.btn-secondary {
+  @apply inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-800/60 px-4 py-2.5 font-semibold text-zinc-100 transition hover:bg-zinc-700/60;
+}
+
+.input {
+  @apply w-full rounded-xl border border-zinc-700 bg-zinc-900 px-3.5 py-2.5 text-zinc-100 outline-none placeholder:text-zinc-500 focus:border-emerald-500;
+}
+
+.label {
+  @apply mb-1.5 block text-sm font-medium text-zinc-300;
+}
