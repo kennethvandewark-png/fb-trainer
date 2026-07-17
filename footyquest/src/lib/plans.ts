@@ -185,10 +185,25 @@ export async function savePlan(req: PlanRequest, spec: PlanSpec, source: "AI" | 
     (await prisma.drill.findMany()).map((d) => [d.id, d])
   );
 
-  await prisma.trainingPlan.updateMany({
+  // Replace any current active plan(s): deactivate them AND remove their
+  // still-PLANNED sessions so leftover future/missed sessions don't linger on
+  // the calendar, in upcoming lists, or in compliance math. Sessions the child
+  // already acted on (COMPLETED/PARTIAL/SKIPPED) are kept as history.
+  const outgoingPlans = await prisma.trainingPlan.findMany({
     where: { childId: req.childId, active: true },
-    data: { active: false },
+    select: { id: true },
   });
+
+  if (outgoingPlans.length > 0) {
+    const outgoingIds = outgoingPlans.map((p) => p.id);
+    await prisma.session.deleteMany({
+      where: { planId: { in: outgoingIds }, status: "PLANNED" },
+    });
+    await prisma.trainingPlan.updateMany({
+      where: { id: { in: outgoingIds } },
+      data: { active: false },
+    });
+  }
 
   const plan = await prisma.trainingPlan.create({
     data: {
