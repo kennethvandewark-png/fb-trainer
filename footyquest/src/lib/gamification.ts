@@ -262,7 +262,12 @@ export async function processSessionCompletion(opts: {
   let xpEarned = 0;
   if (status !== "SKIPPED") {
     const streakData = updateStreak(child);
-    xpEarned = actualLoad * 2 + Math.min(streakData.streak, 10) * 5;
+    // XP scales with session-RPE load (RPE × minutes), so harder/longer sessions
+    // earn more. Divided by RPE_XP_DIVISOR to keep rewards on the previous scale.
+    // Falls back to the drill loadScore sum if no RPE was recorded.
+    const RPE_XP_DIVISOR = 5;
+    const loadXp = trainingLoad > 0 ? Math.round(trainingLoad / RPE_XP_DIVISOR) : actualLoad * 2;
+    xpEarned = loadXp + Math.min(streakData.streak, 10) * 5;
     if (status === "COMPLETED") xpEarned += 20; // full-completion bonus
     await prisma.childProfile.update({
       where: { id: child.id },
