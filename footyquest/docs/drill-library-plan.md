@@ -85,8 +85,7 @@ Sources: [US Youth Soccer Player Development Model](https://www.usyouthsoccer.or
 Embedding YouTube videos via the standard iframe embed is free and permitted; the
 [YouTube API developer policies](https://developers.google.com/youtube/terms/developer-policies)
 require that we (a) clearly show YouTube as the source and keep player branding visible,
-(b) not obscure attribution, and (c) **because our users are children**, check each video's
-Made-for-Kids status and disable tracking/personalization — practically: use
+(b) not obscure attribution, and (c) **because our users are children**,   and disable tracking/personalization — practically: use
 `youtube-nocookie.com` (privacy-enhanced mode), never autoplay, no related-video rails.
 
 Channels with large, free, high-quality drill libraries suitable for our categories:
@@ -226,7 +225,6 @@ model Drill {
   videoId         String?      // extracted YouTube ID for embeds
   videoStartSec   Int?         // deep-link timestamp for the relevant segment
   videoChannel    String?      // attribution: channel name
-  videoMadeForKids Boolean?    // cached Made-for-Kids status (COPPA handling)
 }
 ```
 
@@ -269,8 +267,7 @@ drill IDs change, so existing `SessionDrill` history stays valid.
    `https://www.youtube-nocookie.com/embed/{videoId}?start={sec}&rel=0`.
 2. **Attribution**: show the channel name + "on YouTube" under the player; never overlay
    or crop the player chrome (required by YouTube developer policies).
-3. **Child safety/privacy**: no autoplay; `rel=0`; check and cache Made-for-Kids status
-   per video; prefer videos that are instructional and ad-light. Player only loads after
+3. **Child safety/privacy**: no autoplay; `rel=0`; prefer videos that are instructional and ad-light. Player only loads after
    a click on the thumbnail (click-to-load keeps third-party cookies out of first paint).
 4. **Segment deep-links**: many source videos cover 5–50 drills; `videoStartSec` points
    at the exact drill inside a compilation, which lets one 7mlc "50 Ball Mastery
@@ -353,8 +350,7 @@ they're weakest.
 Dependencies/risks: seed-data volume is the big lift (320 variants × steps + cues +
 scaling ≈ content-writing work — mitigated by family templates where variants share most
 text); YouTube link rot (mitigated by text-first drills + oEmbed checks); COPPA/child
-privacy around embeds (mitigated by nocookie domain + click-to-load + Made-for-Kids
-checks).
+privacy around embeds (mitigated by nocookie domain + click-to-load).
 
 ---
 
