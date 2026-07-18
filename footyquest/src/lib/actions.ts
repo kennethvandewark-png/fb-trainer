@@ -225,7 +225,9 @@ export async function completeSessionAction(_prev: ActionState, formData: FormDa
   if (!child) redirect("/login/child");
 
   const sessionId = String(formData.get("sessionId"));
-  const effort = String(formData.get("effort") ?? "") || null;
+  const rpeRaw = formData.get("rpe");
+  const rpeNum = rpeRaw !== null && String(rpeRaw).trim() !== "" ? Number(rpeRaw) : NaN;
+  const rpe = !Number.isNaN(rpeNum) ? Math.min(10, Math.max(1, Math.round(rpeNum))) : null;
   const notes = String(formData.get("notes") ?? "").trim();
 
   const sessionDrillIds = formData.getAll("sessionDrillIds").map(String);
@@ -244,12 +246,14 @@ export async function completeSessionAction(_prev: ActionState, formData: FormDa
       sessionId,
       childId: child.id,
       outcomes,
-      effort,
+      rpe,
       notes,
     });
     revalidatePath("/home");
     revalidatePath("/calendar");
     revalidatePath(`/session/${sessionId}`);
+    revalidatePath("/parent");
+    revalidatePath(`/coach/athlete/${child.id}`);
     const badgeMsg = result.newBadges.length ? ` New badge${result.newBadges.length > 1 ? "s" : ""} earned!` : "";
     return {
       success:

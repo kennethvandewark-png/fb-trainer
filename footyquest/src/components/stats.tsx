@@ -1,4 +1,5 @@
 import { levelProgress } from "@/lib/gamification";
+import { FitnessPoint, freshnessLabel } from "@/lib/trainingload";
 
 export function StatCard({ icon, label, value, sub }: { icon: string; label: string; value: string; sub?: string }) {
   return (
@@ -67,6 +68,108 @@ export function LoadChart({
           <span className="inline-block h-2.5 w-2.5 rounded-sm bg-emerald-500" /> Completed
         </span>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Fitness / Tiredness / Freshness trend — an EWMA-based (Banister) view of
+ * training-load consistency, in the spirit of a TrainingPeaks PMC. Kid-facing
+ * labels by default; pass `technical` to also show the CTL/ATL/TSB names.
+ */
+export function FitnessChart({
+  series,
+  technical = false,
+}: {
+  series: FitnessPoint[];
+  technical?: boolean;
+}) {
+  const hasData = series.some((p) => p.fitness > 0 || p.load > 0);
+  if (!hasData) {
+    return (
+      <p className="text-sm text-zinc-400">
+        Log a few sessions (with a 1–10 effort rating) to start building your Fitness &amp; Freshness trend.
+      </p>
+    );
+  }
+
+  const W = 320;
+  const H = 150;
+  const padX = 6;
+  const padTop = 8;
+  const padBottom = 8;
+
+  const values = series.flatMap((p) => [p.fitness, p.fatigue, p.freshness]);
+  const max = Math.max(1, ...values);
+  const min = Math.min(0, ...values);
+  const span = max - min || 1;
+  const n = series.length;
+
+  const x = (i: number) => padX + (n === 1 ? 0 : (i / (n - 1)) * (W - padX * 2));
+  const y = (v: number) => padTop + ((max - v) / span) * (H - padTop - padBottom);
+
+  const line = (key: "fitness" | "fatigue" | "freshness") =>
+    series.map((p, i) => `${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(" ");
+
+  const current = series[series.length - 1];
+  const fresh = freshnessLabel(current.freshness);
+  const zeroY = y(0);
+
+  const metrics = [
+    { key: "fitness" as const, kid: "Fitness", tech: "CTL", color: "#34d399", value: current.fitness },
+    { key: "fatigue" as const, kid: "Tiredness", tech: "ATL", color: "#f59e0b", value: current.fatigue },
+    { key: "freshness" as const, kid: "Freshness", tech: "TSB", color: "#38bdf8", value: current.freshness },
+  ];
+
+  return (
+    <div>
+      <div className="mb-3 grid grid-cols-3 gap-2">
+        {metrics.map((m) => (
+          <div key={m.key} className="rounded-xl bg-zinc-800/60 px-3 py-2">
+            <div className="flex items-center gap-1.5 text-xs text-zinc-400">
+              <span className="inline-block h-2.5 w-2.5 rounded-sm" style={{ backgroundColor: m.color }} />
+              {m.kid}
+              {technical && <span className="text-zinc-500">({m.tech})</span>}
+            </div>
+            <div className="text-lg font-bold" style={{ color: m.color }}>
+              {m.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" preserveAspectRatio="none" role="img">
+        {min < 0 && (
+          <line x1={padX} y1={zeroY} x2={W - padX} y2={zeroY} stroke="#3f3f46" strokeWidth="0.5" strokeDasharray="3 3" />
+        )}
+        {metrics.map((m) => (
+          <polyline
+            key={m.key}
+            points={line(m.key)}
+            fill="none"
+            stroke={m.color}
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            vectorEffect="non-scaling-stroke"
+          >
+            <title>{`${m.kid}${technical ? ` (${m.tech})` : ""}: now ${m.value}`}</title>
+          </polyline>
+        ))}
+      </svg>
+
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+        <span className="text-zinc-400">
+          {series[0].date} → {current.date}
+        </span>
+        <span className="rounded-full bg-zinc-800 px-2 py-0.5 text-zinc-300">
+          Today: <span className="font-semibold text-sky-300">{fresh.label}</span> — {fresh.hint}
+        </span>
+      </div>
+      <p className="mt-2 text-xs text-zinc-500">
+        A training-consistency trend from your session effort, not a medical measure of fitness or a
+        readiness/injury score.
+      </p>
     </div>
   );
 }

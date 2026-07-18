@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db";
 import { requireChild } from "@/lib/auth";
 import { todayStr, addDays } from "@/lib/gamification";
 import { ChildNav } from "@/components/nav";
-import { StatCard, XpBar, LoadChart, StatusPill } from "@/components/stats";
+import { StatCard, XpBar, LoadChart, FitnessChart, StatusPill } from "@/components/stats";
 import { createQuickSession } from "@/lib/actions";
+import { buildFitnessSeries, fitnessLoadStartDate } from "@/lib/trainingload";
 import { TIER_META, Tier } from "@/lib/benchmarks";
 
 export default async function HomePage() {
@@ -13,7 +14,7 @@ export default async function HomePage() {
   if (!child) redirect("/login/child");
 
   const today = todayStr();
-  const [todaySessions, upcoming, plan, skills, recentFeedback, weekSessions] = await Promise.all([
+  const [todaySessions, upcoming, plan, skills, recentFeedback, weekSessions, loadSessions] = await Promise.all([
     prisma.session.findMany({
       where: { childId: child.id, date: today },
       include: { drills: { include: { drill: true } } },
@@ -40,7 +41,13 @@ export default async function HomePage() {
     prisma.session.findMany({
       where: { childId: child.id, date: { gte: addDays(today, -27), lte: addDays(today, 7) } },
     }),
+    prisma.session.findMany({
+      where: { childId: child.id, date: { gte: fitnessLoadStartDate(), lte: today } },
+      select: { date: true, trainingLoad: true },
+    }),
   ]);
+
+  const fitnessSeries = buildFitnessSeries(loadSessions);
 
   // last 4 weeks + current week of load
   const weeks: { label: string; planned: number; actual: number }[] = [];
@@ -124,6 +131,11 @@ export default async function HomePage() {
               <button className="btn-secondary">⚡ Bonus quick session</button>
             </form>
           )}
+        </section>
+
+        <section className="card">
+          <h2 className="mb-4 text-lg font-bold">Fitness &amp; Freshness</h2>
+          <FitnessChart series={fitnessSeries} />
         </section>
 
         <div className="grid gap-6 lg:grid-cols-2">

@@ -50,7 +50,11 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
             <div className="mt-3 rounded-xl bg-zinc-800/60 p-3 text-sm text-zinc-300">
               Logged{session.completedAt ? ` on ${session.completedAt.toISOString().slice(0, 10)}` : ""} — actual load{" "}
               <span className="font-bold text-emerald-400">{session.actualLoad}</span>
-              {session.effort && <> · effort: {session.effort.replace("_", " ").toLowerCase()}</>}
+              {session.rpe ? (
+                <> · RPE {session.rpe}/10</>
+              ) : (
+                session.effort && <> · felt {session.effort.replace("_", " ").toLowerCase()}</>
+              )}
               {session.notes && <p className="mt-1 text-zinc-400">Notes: {session.notes}</p>}
             </div>
           )}
@@ -143,24 +147,23 @@ export default async function SessionPage({ params }: { params: Promise<{ id: st
             {isPlanned && (
               <div className="card space-y-4">
                 <div>
-                  <label className="label">How hard was it?</label>
-                  <div className="flex flex-wrap gap-2">
-                    {[
-                      ["EASY", "😎 Easy"],
-                      ["MODERATE", "🙂 Moderate"],
-                      ["HARD", "😤 Hard"],
-                      ["ALL_OUT", "🥵 All out"],
-                    ].map(([v, label]) => (
-                      <label key={v} className="cursor-pointer">
-                        <input type="radio" name="effort" value={v} defaultChecked={v === "MODERATE"} className="peer sr-only" />
-                        <span className="inline-block rounded-xl border border-zinc-700 px-3 py-1.5 text-sm peer-checked:border-emerald-500 peer-checked:bg-emerald-950/50 peer-checked:text-emerald-300">
-                          {label}
+                  <label className="label">How hard was it? (rate 1–10)</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                      <label key={n} className="cursor-pointer">
+                        <input type="radio" name="rpe" value={n} defaultChecked={n === 5} className="peer sr-only" />
+                        <span className="grid h-9 w-9 place-items-center rounded-xl border border-zinc-700 text-sm font-semibold peer-checked:border-emerald-500 peer-checked:bg-emerald-950/60 peer-checked:text-emerald-300">
+                          {n}
                         </span>
                       </label>
                     ))}
                   </div>
+                  <div className="mt-1 flex justify-between text-xs text-zinc-500">
+                    <span>1 · 😎 very easy</span>
+                    <span>🥵 all-out · 10</span>
+                  </div>
                   <p className="mt-1.5 text-xs text-zinc-500">
-                    This tunes your progression levels — be honest, it makes your next plan better.
+                    Rate the whole session honestly — it tunes your progression levels and your Fitness &amp; Freshness chart.
                   </p>
                 </div>
                 <div>

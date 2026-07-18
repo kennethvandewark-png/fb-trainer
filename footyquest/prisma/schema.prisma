@@ -156,7 +156,9 @@ model Session {
   status       String        @default("PLANNED") // PLANNED|COMPLETED|PARTIAL|SKIPPED
   plannedLoad  Int           @default(0)
   actualLoad   Int           @default(0)
-  effort       String? // EASY|MODERATE|HARD|ALL_OUT (post-session survey)
+  rpe          Int? // session RPE 1-10 (post-session survey)
+  trainingLoad Int           @default(0) // session-RPE load = rpe × completed minutes; feeds fitness/fatigue model
+  effort       String? // EASY|MODERATE|HARD|ALL_OUT, derived from rpe (drives progression tuning)
   notes        String        @default("")
   assignedById String?
   assignedBy   User?         @relation("AssignedByCoach", fields: [assignedById], references: [id], onDelete: SetNull)
