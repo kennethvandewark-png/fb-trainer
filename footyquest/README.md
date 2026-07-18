@@ -31,6 +31,26 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000).
 
+### Load demo accounts
+
+To explore a populated app without registering accounts manually:
+
+```bash
+npm run seed:demo
+```
+
+This command is idempotent and also seeds the core skills, drills, and badges.
+It creates a linked parent, player, and coach with sample progress:
+
+| Role | Login |
+| --- | --- |
+| Parent | `sam@example.com` / `secret123` |
+| Player | `jordan10` / PIN `1234` |
+| Coach | `coach@example.com` / `secret123` |
+
+These fixed credentials are for local development only. Never run the demo seed
+against a production database.
+
 ### Try it out
 
 1. Register a **parent** account, add a child (username + PIN).
@@ -58,3 +78,4 @@ Set `AUTH_SECRET` (long random string) and optionally `OPENAI_API_KEY` in the ho
 | `npm start` | Serve the production build |
 | `npm run lint` | ESLint |
 | `npm run seed` | Re-seed skills, drills and badges (idempotent) |
+| `npm run seed:demo` | Seed core data plus linked local demo accounts and progress |
