@@ -185,43 +185,13 @@ export async function savePlan(req: PlanRequest, spec: PlanSpec, source: "AI" | 
     (await prisma.drill.findMany()).map((d) => [d.id, d])
   );
 
-  // Replace any current active plan(s): deactivate them AND remove their
-  // still-PLANNED sessions so leftover future/missed sessions don't linger on
-  // the calendar, in upcoming lists, or in compliance math. Sessions the child
-  // already acted on (COMPLETED/PARTIAL/SKIPPED) are kept as history.
-  const outgoingPlans = await prisma.trainingPlan.findMany({
-    where: { childId: req.childId, active: true },
-    select: { id: true },
-  });
-
-  if (outgoingPlans.length > 0) {
-    const outgoingIds = outgoingPlans.map((p) => p.id);
-    await prisma.session.deleteMany({
-      where: { planId: { in: outgoingIds }, status: "PLANNED" },
-    });
-    await prisma.trainingPlan.updateMany({
-      where: { id: { in: outgoingIds } },
-      data: { active: false },
-    });
-  }
-
-  const plan = await prisma.trainingPlan.create({
-    data: {
-      childId: req.childId,
-      name: spec.name,
-      goal: req.goal,
-      weeks: req.weeks,
-      source,
-      summary: spec.summary,
-    },
-  });
-
+  // Precompute session rows (pure, no DB writes) so the transaction below stays short.
   // Map week/dayIndex to real dates: find next occurrence of each chosen weekday
   const today = todayStr();
   const sortedWeekdays = [...req.weekdays].sort((a, b) => a - b);
   const startDow = new Date(today + "T00:00:00Z").getUTCDay();
 
-  for (const s of spec.sessions) {
+  const sessionRows = spec.sessions.map((s) => {
     const weekday = sortedWeekdays[s.dayIndex % sortedWeekdays.length];
     // first occurrence of this weekday strictly after today
     let offset = (weekday - startDow + 7) % 7;
@@ -231,18 +201,58 @@ export async function savePlan(req: PlanRequest, spec: PlanSpec, source: "AI" | 
     const drillIds = s.drillIds.filter((id) => drillsById.has(id));
     const plannedLoad = drillIds.reduce((sum, id) => sum + (drillsById.get(id)?.loadScore ?? 0), 0);
 
-    await prisma.session.create({
+    return { date, title: s.title, focus: s.focus, plannedLoad, drillIds };
+  });
+
+  // Replace any current active plan(s) and create the new plan + sessions atomically.
+  // Without a transaction a partial failure could leave the child with no active
+  // plan, a plan with missing sessions, or orphaned planned sessions.
+  return prisma.$transaction(async (tx) => {
+    // Replace any current active plan(s): deactivate them AND remove their
+    // still-PLANNED sessions so leftover future/missed sessions don't linger on
+    // the calendar, in upcoming lists, or in compliance math. Sessions the child
+    // already acted on (COMPLETED/PARTIAL/SKIPPED) are kept as history.
+    const outgoingPlans = await tx.trainingPlan.findMany({
+      where: { childId: req.childId, active: true },
+      select: { id: true },
+    });
+
+    if (outgoingPlans.length > 0) {
+      const outgoingIds = outgoingPlans.map((p) => p.id);
+      await tx.session.deleteMany({
+        where: { planId: { in: outgoingIds }, status: "PLANNED" },
+      });
+      await tx.trainingPlan.updateMany({
+        where: { id: { in: outgoingIds } },
+        data: { active: false },
+      });
+    }
+
+    const plan = await tx.trainingPlan.create({
       data: {
         childId: req.childId,
-        planId: plan.id,
-        date,
-        title: s.title,
-        focus: s.focus,
-        plannedLoad,
-        drills: { create: drillIds.map((id, i) => ({ drillId: id, order: i })) },
+        name: spec.name,
+        goal: req.goal,
+        weeks: req.weeks,
+        source,
+        summary: spec.summary,
       },
     });
-  }
 
-  return plan;
+    for (const row of sessionRows) {
+      await tx.session.create({
+        data: {
+          childId: req.childId,
+          planId: plan.id,
+          date: row.date,
+          title: row.title,
+          focus: row.focus,
+          plannedLoad: row.plannedLoad,
+          drills: { create: row.drillIds.map((id, i) => ({ drillId: id, order: i })) },
+        },
+      });
+    }
+
+    return plan;
+  });
 }
